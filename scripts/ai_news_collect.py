@@ -49,11 +49,14 @@ FEEDS = (
     Feed("Google AI", "https://blog.google/technology/ai/rss/", 5),
     Feed("Google DeepMind", "https://deepmind.google/blog/rss.xml", 5),
     Feed("Hugging Face", "https://huggingface.co/blog/feed.xml", 5),
+    Feed("AWS Machine Learning Blog", "https://aws.amazon.com/blogs/machine-learning/feed/", 4),
     Feed("The Verge AI", "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", 2),
     Feed("VentureBeat AI", "https://venturebeat.com/category/ai/feed/", 2),
     Feed("TechCrunch AI", "https://techcrunch.com/category/artificial-intelligence/feed/", 2),
     Feed("NVIDIA Blog", "https://blogs.nvidia.com/feed/", 3),
+    Feed("MIT Technology Review AI", "https://www.technologyreview.com/topic/artificial-intelligence/feed/", 3),
 )
+TLDR_AI_FEED = Feed("TLDR AI", "https://tldr.tech/api/rss/ai", 2)
 GITHUB_RELEASES = (
     ("vLLM", "vllm-project/vllm"),
     ("Hugging Face Transformers", "huggingface/transformers"),
@@ -118,7 +121,7 @@ def is_article_url(url: str) -> bool:
 
 
 def fetch(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json, application/atom+xml, application/rss+xml, text/xml, */*"})
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json, application/atom+xml, application/rss+xml, text/xml, text/html, */*"})
     with urllib.request.urlopen(request, timeout=20) as response:
         return response.read()
 
@@ -146,6 +149,36 @@ def feed_entries(feed: Feed) -> list[dict[str, str]]:
             summary = text_at(element, ("description", "{http://purl.org/rss/1.0/modules/content/}encoded"))
             published = text_at(element, ("pubDate", "date"))
         entries.append({"title": clean_text(title), "url": link, "summary": clean_text(summary), "published_at": published})
+    return entries
+
+
+def tldr_issue_entries(value: str) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    for article in re.findall(r"<article\b[^>]*>(.*?)</article>", value, re.I | re.S):
+        link_match = re.search(
+            r'<a\b(?=[^>]*\bclass=["\'][^"\']*\bfont-bold\b[^"\']*["\'])(?=[^>]*\bhref=["\']([^"\']+)["\'])[^>]*>',
+            article,
+            re.I | re.S,
+        )
+        title_match = re.search(r"<h3>(.*?)</h3>", article, re.I | re.S)
+        summary_match = re.search(r'<div\b[^>]*class=["\'][^"\']*\bnewsletter-html\b[^"\']*["\'][^>]*>(.*?)</div>', article, re.I | re.S)
+        title = clean_text(title_match.group(1) if title_match else "")
+        summary = clean_text(summary_match.group(1) if summary_match else "")
+        if not link_match or not title or not summary or "sponsor" in title.lower():
+            continue
+        entries.append({"title": title, "url": html.unescape(link_match.group(1)), "summary": summary})
+    return entries
+
+
+def tldr_entries(cutoff: datetime) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    for issue in feed_entries(TLDR_AI_FEED):
+        published = parse_date(issue["published_at"])
+        if not published or published < cutoff:
+            continue
+        for article in tldr_issue_entries(fetch(issue["url"]).decode("utf-8", errors="replace")):
+            article["published_at"] = issue["published_at"]
+            entries.append(article)
     return entries
 
 
@@ -268,6 +301,17 @@ def collect(state_path: Path, lookback_hours: int, max_items: int) -> dict[str, 
                 item = candidate(feed.name, entry["title"], entry["url"], entry["published_at"], entry["summary"], score)
                 if item:
                     raw_candidates.append(item)
+
+    try:
+        entries = tldr_entries(cutoff)
+        for entry in entries:
+            score = score_item(entry["title"], entry["url"], entry["summary"], TLDR_AI_FEED.weight)
+            if score is not None:
+                item = candidate(TLDR_AI_FEED.name, entry["title"], entry["url"], entry["published_at"], entry["summary"], score)
+                if item:
+                    raw_candidates.append(item)
+    except Exception as error:
+        errors.append({"source": TLDR_AI_FEED.name, "error": str(error)[:300]})
 
     try:
         entries = hn_entries(cutoff)

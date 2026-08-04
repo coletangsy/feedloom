@@ -3,10 +3,23 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.ai_news_collect import canonical_url, load_state, save_seen, score_item
+from scripts.ai_news_collect import FEEDS, TLDR_AI_FEED, canonical_url, load_state, save_seen, score_item, tldr_issue_entries
 
 
 class NewsCollectorTests(unittest.TestCase):
+    def test_curated_feeds_include_tldr_and_have_unique_urls(self):
+        feeds = {feed.name: feed for feed in (*FEEDS, TLDR_AI_FEED)}
+
+        self.assertEqual(feeds["AWS Machine Learning Blog"].url, "https://aws.amazon.com/blogs/machine-learning/feed/")
+        self.assertEqual(feeds["MIT Technology Review AI"].url, "https://www.technologyreview.com/topic/artificial-intelligence/feed/")
+        self.assertEqual(feeds["TLDR AI"].url, "https://tldr.tech/api/rss/ai")
+        self.assertEqual(len(feeds), len({feed.url for feed in feeds.values()}))
+
+    def test_tldr_issue_entries_keep_exact_links_and_drop_sponsors(self):
+        entries = tldr_issue_entries('<article><a class="font-bold" href="https://example.com/story"><h3>New AI model</h3></a><div class="newsletter-html">A useful summary.</div></article><article><a class="font-bold" href="https://example.com/sponsor"><h3>AI platform (Sponsor)</h3></a><div class="newsletter-html">Sponsored.</div></article>')
+
+        self.assertEqual(entries, [{"title": "New AI model", "url": "https://example.com/story", "summary": "A useful summary."}])
+
     def test_canonical_url_drops_tracking_but_keeps_meaningful_query(self):
         self.assertEqual(
             canonical_url("https://Example.com/post/?utm_source=x&model=gpt#section"),
