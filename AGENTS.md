@@ -1,4 +1,4 @@
-# AI news automation instructions
+# Feedloom instructions
 
 For unattended briefing runs, read `.agents/skills/ai-news-briefing/SKILL.md` before producing an answer.
 

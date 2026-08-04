@@ -23,7 +23,7 @@ from typing import Any
 
 LOOKBACK_HOURS = 36
 STATE_DAYS = 14
-USER_AGENT = "ai-news-automation/1.0 (+local Codex briefing)"
+USER_AGENT = "feedloom/1.0 (+local Codex briefing)"
 SCOPED_TERMS = (
     "ai", "artificial intelligence", "llm", "language model", "gpt", "gemini",
     "claude", "agent", "machine learning", "deep learning", "data science",
