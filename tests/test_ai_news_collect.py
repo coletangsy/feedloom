@@ -3,10 +3,16 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.ai_news_collect import canonical_url, load_state, save_seen, score_item
+from scripts.ai_news_collect import FEEDS, canonical_url, load_state, save_seen, score_item
 
 
 class NewsCollectorTests(unittest.TestCase):
+    def test_curated_feeds_include_tldr_and_have_unique_urls(self):
+        feeds = {feed.name: feed for feed in FEEDS}
+
+        self.assertEqual(feeds["TLDR AI"].url, "https://tldr.tech/api/rss/ai")
+        self.assertEqual(len(FEEDS), len({feed.url for feed in FEEDS}))
+
     def test_canonical_url_drops_tracking_but_keeps_meaningful_query(self):
         self.assertEqual(
             canonical_url("https://Example.com/post/?utm_source=x&model=gpt#section"),

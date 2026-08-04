@@ -6,7 +6,7 @@
 
 `scripts/ai_news_collect.py` 只做可重跑的蒐集、正規化、初步評分與去重，並輸出 JSON。摘要 agent 只可根據該 JSON 選出最多六則新聞，不得以即時搜尋補資料。
 
-已涵蓋官方 OpenAI、Google AI、Google DeepMind、Hugging Face RSS、The Verge AI、VentureBeat AI、TechCrunch AI、NVIDIA Blog、Hacker News Algolia 與指定 GitHub releases。單一來源錯誤會記錄在 `collection_errors`，不會阻止其餘來源繼續執行。
+已涵蓋官方 OpenAI、Google AI、Google DeepMind、Hugging Face RSS、AWS Machine Learning Blog、NVIDIA Blog、TLDR AI、MIT Technology Review AI、The Verge AI、VentureBeat AI、TechCrunch AI、Hacker News Algolia 與指定 GitHub releases。單一來源錯誤會記錄在 `collection_errors`，不會阻止其餘來源繼續執行。
 
 ## 本機使用
 

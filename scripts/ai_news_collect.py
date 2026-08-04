@@ -49,10 +49,13 @@ FEEDS = (
     Feed("Google AI", "https://blog.google/technology/ai/rss/", 5),
     Feed("Google DeepMind", "https://deepmind.google/blog/rss.xml", 5),
     Feed("Hugging Face", "https://huggingface.co/blog/feed.xml", 5),
+    Feed("AWS Machine Learning Blog", "https://aws.amazon.com/blogs/machine-learning/feed/", 4),
     Feed("The Verge AI", "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", 2),
     Feed("VentureBeat AI", "https://venturebeat.com/category/ai/feed/", 2),
     Feed("TechCrunch AI", "https://techcrunch.com/category/artificial-intelligence/feed/", 2),
     Feed("NVIDIA Blog", "https://blogs.nvidia.com/feed/", 3),
+    Feed("TLDR AI", "https://tldr.tech/api/rss/ai", 2),
+    Feed("MIT Technology Review AI", "https://www.technologyreview.com/topic/artificial-intelligence/feed/", 3),
 )
 GITHUB_RELEASES = (
     ("vLLM", "vllm-project/vllm"),
