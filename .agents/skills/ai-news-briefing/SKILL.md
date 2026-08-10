@@ -13,11 +13,11 @@ Surface only AI and data-science news that deserves the user's attention. Prefer
 
 Run `scripts/ai_news_collect.py` first. Treat its JSON as the sole evidence set for an unattended briefing. Reject candidates that lack an exact article, release, paper, repository, or discussion URL.
 
-Prioritize new models, meaningful benchmarks or research, important open-source tools, material product/API changes, and consequential safety, privacy, policy, or governance developments. Also include material MLOps and data-science changes when they affect practitioners.
+Prioritize new models, meaningful benchmarks or research, important open-source tools, material product/API changes, and consequential safety, privacy, policy, or governance developments. Also include material MLOps and data-science changes when they affect practitioners. Include a specialized case study when its candidate names a transferable architecture, workflow, method, or measured outcome; a niche application is acceptable when the underlying technique is useful beyond that domain. Include a concrete AI research or organizational change when it credibly signals a possible shift in research direction, product priorities, or talent flow; label the downstream impact as something to watch, not as an established fact.
 
-Drop duplicate coverage, SEO or aggregation sites, generic fundraising, routine version bumps, marketing without substance, source homepages, and claims that cannot be verified from a candidate. Do not turn unconfirmed reports into facts.
+Drop duplicate coverage, SEO or aggregation sites, generic fundraising, routine version bumps, vendor case studies without transferable technical detail or a verifiable outcome, generic company chatter, source homepages, and claims that cannot be verified from a candidate. Do not turn unconfirmed reports into facts.
 
-Use up to ten items. Aim for eight to ten only when enough high-signal candidates merit inclusion; otherwise keep the briefing shorter. Group items only when it improves reading; do not manufacture empty categories.
+Use up to eight items. Aim for three to six only when enough high-signal candidates merit inclusion; otherwise keep the briefing shorter. Group items only when it improves reading; do not manufacture empty categories.
 
 ## Output
 
