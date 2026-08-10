@@ -11,6 +11,10 @@ class NewsCollectorTests(unittest.TestCase):
         feeds = {feed.name: feed for feed in (*FEEDS, TLDR_AI_FEED)}
 
         self.assertEqual(feeds["AWS Machine Learning Blog"].url, "https://aws.amazon.com/blogs/machine-learning/feed/")
+        self.assertEqual(feeds["Apple ML Research"].url, "https://machinelearning.apple.com/rss.xml")
+        self.assertEqual(feeds["Microsoft Research"].url, "https://www.microsoft.com/en-us/research/feed/")
+        self.assertEqual(feeds["Databricks"].url, "https://www.databricks.com/feed")
+        self.assertEqual(feeds["PyTorch"].url, "https://pytorch.org/blog/feed.xml")
         self.assertEqual(feeds["MIT Technology Review AI"].url, "https://www.technologyreview.com/topic/artificial-intelligence/feed/")
         self.assertEqual(feeds["TLDR AI"].url, "https://tldr.tech/api/rss/ai")
         self.assertEqual(len(feeds), len({feed.url for feed in feeds.values()}))

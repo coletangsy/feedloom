@@ -1,12 +1,12 @@
-# AI news automation
+# Feedloom
 
-每天蒐集、篩選並以繁體中文整理值得留意的 AI 與資料科學新聞。正常結果會由 Codex 的每日自動化回覆在此任務；沒有合格內容時只回覆 `[SILENT]`。
+一個內容蒐集器：每天蒐集、篩選並以繁體中文整理值得留意的 AI 與資料科學新聞。正常結果會由 Codex 的每日自動化回覆在此任務；沒有合格內容時只回覆 `[SILENT]`。
 
 ## 設計
 
-`scripts/ai_news_collect.py` 只做可重跑的蒐集、正規化、初步評分與去重，並輸出 JSON。摘要 agent 只可根據該 JSON 選出最多六則新聞，不得以即時搜尋補資料。
+`scripts/ai_news_collect.py` 只做可重跑的蒐集、正規化、初步評分與去重，並輸出 JSON。摘要 agent 只可根據該 JSON 選出最多八則新聞；有足夠高訊號候選時，以三至六則為目標，不得以即時搜尋補資料。
 
-已涵蓋官方 OpenAI、Google AI、Google DeepMind、Hugging Face RSS、AWS Machine Learning Blog、NVIDIA Blog、TLDR AI（會展開為原文連結）、MIT Technology Review AI、The Verge AI、VentureBeat AI、TechCrunch AI、Hacker News Algolia 與指定 GitHub releases。單一來源錯誤會記錄在 `collection_errors`，不會阻止其餘來源繼續執行。
+已涵蓋官方 OpenAI、Google AI、Google DeepMind、Apple ML Research、Microsoft Research、Hugging Face RSS、AWS Machine Learning Blog、Databricks、PyTorch、NVIDIA Blog、TLDR AI（會展開為原文連結）、MIT Technology Review AI、The Verge AI、VentureBeat AI、TechCrunch AI、Hacker News Algolia 與指定 GitHub releases。單一來源錯誤會記錄在 `collection_errors`，不會阻止其餘來源繼續執行。
 
 ## 本機使用
 
