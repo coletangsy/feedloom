@@ -13,9 +13,13 @@ Surface only AI and data-science news that deserves the user's attention. Prefer
 
 Run `scripts/ai_news_collect.py` first. Treat its JSON as the sole evidence set for an unattended briefing. Reject candidates that lack an exact article, release, paper, repository, or discussion URL.
 
-Prioritize new models, meaningful benchmarks or research, important open-source tools, material product/API changes, and consequential safety, privacy, policy, or governance developments. Also include material MLOps and data-science changes when they affect practitioners.
+Always prioritize major model or API changes, coding agents, important open-source tools, material MLOps developments, and consequential security issues.
 
-Drop duplicate coverage, SEO or aggregation sites, generic fundraising, routine version bumps, marketing without substance, source homepages, and claims that cannot be verified from a candidate. Do not turn unconfirmed reports into facts.
+Use strong recent community discussion as an additional prioritization signal when candidate points or comment counts are available. Popularity is not evidence: it must not override source quality, materiality, or the requirement for an exact story or discussion URL.
+
+Include policy, enterprise products, research, and consumer AI features only when the development is material. Drop funding, executive changes, marketing case studies, routine releases, and promotional claims without substantive evidence.
+
+Drop duplicate coverage, SEO or aggregation sites, source homepages, and claims that cannot be verified from a candidate. Do not turn unconfirmed reports into facts.
 
 Use up to ten items. Aim for eight to ten only when enough high-signal candidates merit inclusion; otherwise keep the briefing shorter. Group items only when it improves reading; do not manufacture empty categories.
 
