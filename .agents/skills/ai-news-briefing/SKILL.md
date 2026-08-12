@@ -25,6 +25,12 @@ Write in Traditional Chinese. Never use Markdown tables.
 
 Format the briefing as Markdown for email: use headings for the title and groups, bold the date and each story title, and link `來源` to the exact candidate URL. Keep each numbered story—title, summary, and source—on one logical line with no hard line breaks inside it. Email clients may wrap that line visually to fit the screen.
 
+## Gmail delivery
+
+Send the completed briefing with the Gmail `send_email` action using `payload.mime_type: "text/plain"`, `payload.charset: "utf-8"`, and the Markdown briefing as `payload.body.content`. Never use `text/markdown`: some mail clients render that MIME type as a downloadable attachment instead of the message body. Do not set a filename or attachment disposition.
+
+After sending, read the sent message and confirm it has a nonempty body and a root MIME type of `text/plain` or `multipart/alternative`. If this check fails, report delivery formatting failed rather than claiming the briefing was delivered correctly.
+
 When there are no worthwhile items, output exactly:
 
 ```
