@@ -2,8 +2,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
-from scripts.ai_news_collect import FEEDS, TLDR_AI_FEED, canonical_url, load_state, save_seen, score_item, tldr_issue_entries
+from scripts.ai_news_collect import FEEDS, TLDR_AI_FEED, canonical_url, hn_entries, load_state, save_seen, score_item, tldr_issue_entries
 
 
 class NewsCollectorTests(unittest.TestCase):
@@ -26,9 +27,28 @@ class NewsCollectorTests(unittest.TestCase):
             "https://example.com/post?model=gpt",
         )
 
-    def test_low_heat_hn_item_is_not_high_signal(self):
-        score = score_item("New AI model", "https://example.com/post", "", 1, hn_points=2, hn_comments=1)
-        self.assertLess(score, 4)
+    def test_hn_discussion_heat_changes_signal(self):
+        low_heat = score_item("New AI model", "https://example.com/post", "", 1, hn_points=2, hn_comments=1)
+        active_discussion = score_item("New AI model", "https://example.com/post", "", 1, hn_points=100, hn_comments=30)
+        most_discussed = score_item("New AI model", "https://example.com/post", "", 1, hn_points=300, hn_comments=100)
+
+        self.assertLess(low_heat, 4)
+        self.assertGreaterEqual(active_discussion, 4)
+        self.assertGreater(most_discussed, active_discussion)
+
+    def test_hn_uses_popularity_ranked_search_for_recent_stories(self):
+        payload = b'{"hits": [{"title": "New AI model", "url": "https://example.com/", "points": 300, "num_comments": 100, "created_at": "2026-08-12T01:00:00Z", "objectID": "1"}]}'
+        with patch("scripts.ai_news_collect.fetch", return_value=payload) as fetch:
+            entries = hn_entries(datetime(2026, 8, 12, tzinfo=UTC))
+
+        url = fetch.call_args.args[0]
+        self.assertIn("/api/v1/search?", url)
+        self.assertNotIn("query=", url)
+        self.assertEqual(entries[0]["url"], "https://news.ycombinator.com/item?id=1")
+
+    def test_ai_matches_a_term_not_part_of_an_unrelated_word(self):
+        self.assertIsNone(score_item("Email training update", "https://example.com/post", "Paid leave changes", 2))
+        self.assertIsNotNone(score_item("AI training update", "https://example.com/post", "", 2))
 
     def test_routine_version_bump_is_below_the_output_threshold(self):
         score = score_item("OpenAI Python v2.52.1", "https://github.com/openai/openai-python/releases/tag/v2.52.1", "Chores: pin a CI action", 4, github_release=True)

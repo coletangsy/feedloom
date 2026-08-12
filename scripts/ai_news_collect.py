@@ -182,15 +182,21 @@ def tldr_entries(cutoff: datetime) -> list[dict[str, str]]:
     return entries
 
 
+def has_term(corpus: str, term: str) -> bool:
+    if len(term) > 3:
+        return term in corpus
+    return re.search(rf"(?<![a-z0-9]){re.escape(term)}s?(?![a-z0-9])", corpus) is not None
+
+
 def score_item(title: str, url: str, summary: str, source_weight: int, *, hn_points: int = 0, hn_comments: int = 0, github_release: bool = False) -> int | None:
     corpus = f"{title} {url} {summary}".lower()
-    scoped_hits = sum(term in corpus for term in SCOPED_TERMS)
+    scoped_hits = sum(has_term(corpus, term) for term in SCOPED_TERMS)
     if not scoped_hits:
         return None
     score = source_weight + min(scoped_hits, 3)
-    score += min(sum(term in corpus for term in IMPACT_TERMS), 3)
+    score += min(sum(has_term(corpus, term) for term in IMPACT_TERMS), 3)
     if hn_points or hn_comments:
-        score += 2 if hn_points >= 100 or hn_comments >= 30 else 1 if hn_points >= 30 or hn_comments >= 10 else -2
+        score += 4 if hn_points >= 300 or hn_comments >= 100 else 2 if hn_points >= 100 or hn_comments >= 30 else 1 if hn_points >= 30 or hn_comments >= 10 else -2
     release_signals = ("breaking", "security", "performance", "api", "model", "inference", "deprecat", "support")
     if github_release and re.search(r"\bv?\d+(?:\.\d+){1,4}\b", title, re.I) and not any(term in corpus for term in release_signals):
         score -= 4
@@ -216,21 +222,22 @@ def candidate(source: str, title: str, url: str, published_at: str, summary: str
 
 
 def hn_entries(cutoff: datetime) -> list[dict[str, Any]]:
-    query = urllib.parse.urlencode({"query": "AI OR LLM OR model OR agent OR data science", "tags": "story", "hitsPerPage": 100, "numericFilters": f"created_at_i>{int(cutoff.timestamp())}"})
-    payload = json.loads(fetch(f"https://hn.algolia.com/api/v1/search_by_date?{query}"))
+    query = urllib.parse.urlencode({"tags": "story", "hitsPerPage": 1000, "numericFilters": f"created_at_i>{int(cutoff.timestamp())}"})
+    payload = json.loads(fetch(f"https://hn.algolia.com/api/v1/search?{query}"))
     entries: list[dict[str, Any]] = []
     for hit in payload.get("hits", []):
         title = clean_text(hit.get("title") or hit.get("story_title"))
         original_url = hit.get("url") or hit.get("story_url") or ""
         discussion_url = f"https://news.ycombinator.com/item?id={hit['objectID']}"
+        url = original_url if is_article_url(original_url) else discussion_url
         points = int(hit.get("points") or 0)
         comments = int(hit.get("num_comments") or 0)
         corpus = f"{title} {original_url}".lower()
-        if not any(term in corpus for term in SCOPED_TERMS):
+        if not any(has_term(corpus, term) for term in SCOPED_TERMS):
             continue
-        if not original_url and (points < 100 and comments < 30):
+        if url == discussion_url and points < 100 and comments < 30:
             continue
-        entries.append({"title": title, "url": original_url or discussion_url, "summary": clean_text(hit.get("story_text") or ""), "published_at": hit.get("created_at"), "points": points, "comments": comments, "discussion_url": discussion_url})
+        entries.append({"title": title, "url": url, "summary": clean_text(hit.get("story_text") or ""), "published_at": hit.get("created_at"), "points": points, "comments": comments, "discussion_url": discussion_url})
     return entries
 
 
