@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect high-signal AI and data-science news into deterministic JSON."""
+"""Collect high-signal current and durable AI reading into deterministic JSON."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from typing import Any
 
 
 LOOKBACK_HOURS = 36
+READING_LOOKBACK_DAYS = 90
 STATE_DAYS = 14
 USER_AGENT = "feedloom/1.0 (+local Codex briefing)"
 SCOPED_TERMS = (
@@ -34,6 +35,12 @@ IMPACT_TERMS = (
     "release", "launch", "api", "model", "benchmark", "open source", "security",
     "safety", "privacy", "policy", "regulation", "governance", "inference",
     "training", "research", "agent", "breaking", "deprecat", "performance",
+)
+READING_TERMS = (
+    "analysis", "architecture", "case study", "deep dive", "explained", "guide",
+    "lessons", "postmortem", "tutorial", "evaluation", "benchmark", "research",
+    "paper", "scaling", "inference", "training", "dataset", "reproducibility",
+    "interpretability",
 )
 
 
@@ -203,6 +210,35 @@ def score_item(title: str, url: str, summary: str, source_weight: int, *, hn_poi
     return score
 
 
+def score_reading_item(title: str, url: str, summary: str, source_weight: int) -> int | None:
+    score = score_item(title, url, summary, source_weight)
+    if score is None:
+        return None
+    corpus = f"{title} {url} {summary}".lower()
+    depth_hits = sum(has_term(corpus, term) for term in READING_TERMS)
+    return score + min(depth_hits, 3) if depth_hits else None
+
+
+def score_for_section(title: str, url: str, summary: str, source_weight: int, published: datetime | None, latest_cutoff: datetime, reading_cutoff: datetime) -> int | None:
+    if published is None:
+        return None
+    if published >= latest_cutoff:
+        return score_item(title, url, summary, source_weight)
+    if published >= reading_cutoff:
+        return score_reading_item(title, url, summary, source_weight)
+    return None
+
+
+def section_for(published: datetime | None, latest_cutoff: datetime, reading_cutoff: datetime, score: int | None) -> str | None:
+    if published is None or score is None:
+        return None
+    if published >= latest_cutoff:
+        return "latest"
+    if published >= reading_cutoff:
+        return "reading"
+    return None
+
+
 def candidate(source: str, title: str, url: str, published_at: str, summary: str, score: int, **extra: Any) -> dict[str, Any] | None:
     published = parse_date(published_at)
     if not title or not is_article_url(url) or not published:
@@ -288,9 +324,10 @@ def selected_ids(path: Path) -> list[str]:
     return values
 
 
-def collect(state_path: Path, lookback_hours: int, max_items: int) -> dict[str, Any]:
+def collect(state_path: Path, lookback_hours: int, max_items: int, reading_lookback_days: int = READING_LOOKBACK_DAYS) -> dict[str, Any]:
     now = datetime.now(UTC)
     cutoff = now - timedelta(hours=lookback_hours)
+    reading_cutoff = now - timedelta(days=reading_lookback_days)
     seen = load_state(state_path, now)
     errors: list[dict[str, str]] = []
     raw_candidates: list[dict[str, Any]] = []
@@ -303,18 +340,21 @@ def collect(state_path: Path, lookback_hours: int, max_items: int) -> dict[str, 
             continue
         for entry in entries:
             published = parse_date(entry["published_at"])
-            score = score_item(entry["title"], entry["url"], entry["summary"], feed.weight)
-            if published and published >= cutoff and score is not None:
-                item = candidate(feed.name, entry["title"], entry["url"], entry["published_at"], entry["summary"], score)
+            score = score_for_section(entry["title"], entry["url"], entry["summary"], feed.weight, published, cutoff, reading_cutoff)
+            section = section_for(published, cutoff, reading_cutoff, score)
+            if section:
+                item = candidate(feed.name, entry["title"], entry["url"], entry["published_at"], entry["summary"], score, section=section)
                 if item:
                     raw_candidates.append(item)
 
     try:
-        entries = tldr_entries(cutoff)
+        entries = tldr_entries(reading_cutoff)
         for entry in entries:
-            score = score_item(entry["title"], entry["url"], entry["summary"], TLDR_AI_FEED.weight)
-            if score is not None:
-                item = candidate(TLDR_AI_FEED.name, entry["title"], entry["url"], entry["published_at"], entry["summary"], score)
+            published = parse_date(entry["published_at"])
+            score = score_for_section(entry["title"], entry["url"], entry["summary"], TLDR_AI_FEED.weight, published, cutoff, reading_cutoff)
+            section = section_for(published, cutoff, reading_cutoff, score)
+            if section:
+                item = candidate(TLDR_AI_FEED.name, entry["title"], entry["url"], entry["published_at"], entry["summary"], score, section=section)
                 if item:
                     raw_candidates.append(item)
     except Exception as error:
@@ -325,7 +365,7 @@ def collect(state_path: Path, lookback_hours: int, max_items: int) -> dict[str, 
         for entry in entries:
             score = score_item(entry["title"], entry["url"], entry["summary"], 1, hn_points=entry["points"], hn_comments=entry["comments"])
             if score is not None:
-                item = candidate("Hacker News", entry["title"], entry["url"], entry["published_at"], entry["summary"], score, points=entry["points"], comments=entry["comments"], discussion_url=entry["discussion_url"])
+                item = candidate("Hacker News", entry["title"], entry["url"], entry["published_at"], entry["summary"], score, section="latest", points=entry["points"], comments=entry["comments"], discussion_url=entry["discussion_url"])
                 if item:
                     raw_candidates.append(item)
     except Exception as error:
@@ -341,24 +381,33 @@ def collect(state_path: Path, lookback_hours: int, max_items: int) -> dict[str, 
             published = parse_date(entry["published_at"])
             score = score_item(entry["title"], entry["url"], entry["summary"], 4, github_release=True)
             if published and published >= cutoff and score is not None:
-                item = candidate(name, entry["title"], entry["url"], entry["published_at"], entry["summary"], score, tags=["github-release"])
+                item = candidate(name, entry["title"], entry["url"], entry["published_at"], entry["summary"], score, section="latest", tags=["github-release"])
                 if item:
                     raw_candidates.append(item)
 
     deduplicated: list[dict[str, Any]] = []
     known_titles: set[str] = set()
-    for item in sorted(raw_candidates, key=lambda value: (-value["score"], value["published_at"]), reverse=False):
+    for item in sorted(raw_candidates, key=lambda value: (0 if value["section"] == "latest" else 1, -value["score"], value["published_at"]), reverse=False):
         if item["id"] in seen or item["title_id"] in seen or item["title_id"] in known_titles or item["score"] < 4:
             continue
         known_titles.add(item["title_id"])
         deduplicated.append(item)
-    return {"collected_at": now.isoformat().replace("+00:00", "Z"), "lookback_hours": lookback_hours, "candidates": deduplicated[:max_items], "collection_errors": errors}
+    latest = [item for item in deduplicated if item["section"] == "latest"]
+    reading = [item for item in deduplicated if item["section"] == "reading"]
+    ordered: list[dict[str, Any]] = []
+    for index in range(max(len(latest), len(reading))):
+        if index < len(latest):
+            ordered.append(latest[index])
+        if index < len(reading):
+            ordered.append(reading[index])
+    return {"collected_at": now.isoformat().replace("+00:00", "Z"), "lookback_hours": lookback_hours, "reading_lookback_days": reading_lookback_days, "candidates": ordered[:max_items], "collection_errors": errors}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, default=Path("state/ai_news_seen.json"))
     parser.add_argument("--lookback-hours", type=int, default=LOOKBACK_HOURS)
+    parser.add_argument("--reading-lookback-days", type=int, default=READING_LOOKBACK_DAYS)
     parser.add_argument("--max-items", type=int, default=40)
     parser.add_argument("--mark-seen", type=Path, metavar="JSON")
     args = parser.parse_args()
@@ -371,7 +420,7 @@ def main() -> int:
             return 1
         print(json.dumps({"marked_seen": len(ids)}, ensure_ascii=False))
         return 0
-    print(json.dumps(collect(args.state, args.lookback_hours, args.max_items), ensure_ascii=False, indent=2))
+    print(json.dumps(collect(args.state, args.lookback_hours, args.max_items, args.reading_lookback_days), ensure_ascii=False, indent=2))
     return 0
 
 

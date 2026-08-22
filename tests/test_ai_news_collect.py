@@ -4,7 +4,19 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from scripts.ai_news_collect import FEEDS, TLDR_AI_FEED, canonical_url, hn_entries, load_state, save_seen, score_item, tldr_issue_entries
+from scripts.ai_news_collect import (
+    FEEDS,
+    TLDR_AI_FEED,
+    canonical_url,
+    collect,
+    hn_entries,
+    load_state,
+    save_seen,
+    score_item,
+    score_reading_item,
+    section_for,
+    tldr_issue_entries,
+)
 
 
 class NewsCollectorTests(unittest.TestCase):
@@ -53,6 +65,51 @@ class NewsCollectorTests(unittest.TestCase):
     def test_routine_version_bump_is_below_the_output_threshold(self):
         score = score_item("OpenAI Python v2.52.1", "https://github.com/openai/openai-python/releases/tag/v2.52.1", "Chores: pin a CI action", 4, github_release=True)
         self.assertLess(score, 4)
+
+    def test_old_item_needs_a_reading_signal(self):
+        self.assertIsNone(
+            score_reading_item(
+                "OpenAI model release",
+                "https://example.com/release",
+                "A routine model release.",
+                2,
+            )
+        )
+        self.assertIsNotNone(
+            score_reading_item(
+                "A deep dive into LLM evaluation",
+                "https://example.com/deep-dive",
+                "Research lessons from a benchmark study.",
+                2,
+            )
+        )
+
+    def test_section_for_keeps_recent_items_in_latest(self):
+        now = datetime(2026, 8, 12, tzinfo=UTC)
+        latest_cutoff = now - timedelta(hours=36)
+        reading_cutoff = now - timedelta(days=30)
+
+        self.assertEqual(section_for(now - timedelta(hours=1), latest_cutoff, reading_cutoff, 6), "latest")
+        self.assertEqual(section_for(now - timedelta(days=3), latest_cutoff, reading_cutoff, 6), "reading")
+        self.assertIsNone(section_for(now - timedelta(days=3), latest_cutoff, reading_cutoff, None))
+
+    def test_collect_returns_recent_and_older_reading_candidates(self):
+        now = datetime.now(UTC)
+        entries = {
+            "OpenAI": [
+                {"title": "New AI model release", "url": "https://example.com/latest", "summary": "A new API model release.", "published_at": (now - timedelta(hours=1)).isoformat()},
+                {"title": "A deep dive into LLM evaluation", "url": "https://example.com/reading", "summary": "Research lessons from a benchmark study.", "published_at": (now - timedelta(days=3)).isoformat()},
+            ],
+        }
+
+        def feed_entries(feed):
+            return entries.get(feed.name, [])
+
+        with TemporaryDirectory() as directory:
+            with patch("scripts.ai_news_collect.feed_entries", side_effect=feed_entries), patch("scripts.ai_news_collect.tldr_entries", return_value=[]), patch("scripts.ai_news_collect.hn_entries", return_value=[]), patch("scripts.ai_news_collect.github_entries", return_value=[]):
+                result = collect(Path(directory) / "seen.json", lookback_hours=36, max_items=10, reading_lookback_days=30)
+
+        self.assertEqual([item["section"] for item in result["candidates"]], ["latest", "reading"])
 
     def test_seen_state_expires_after_two_weeks(self):
         now = datetime.now(UTC)
