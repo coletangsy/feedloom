@@ -1,10 +1,12 @@
 # Feedloom
 
-一個內容蒐集器：每天蒐集、篩選並以繁體中文整理值得留意的 AI 與資料科學新聞。正常結果會由 Codex 的每日自動化回覆在此任務；沒有合格內容時只回覆 `[SILENT]`。
+一個內容蒐集器：每天蒐集近期高訊號的 AI 與資料科學動態，也挑出不限新舊、值得真正讀完的內容。正常結果會由 Codex 的每日自動化回覆在此任務；兩條線都沒有合格內容時只回覆 `[SILENT]`。
 
 ## 設計
 
-`scripts/ai_news_collect.py` 只做可重跑的蒐集、正規化、初步評分與去重，並輸出 JSON。摘要 agent 只可根據該 JSON 選出最多十則新聞；有足夠高訊號候選時，以八至十則為目標，不得以即時搜尋補資料。
+`scripts/ai_news_collect.py` 只做可重跑的蒐集、正規化、初步評分與去重，並輸出 JSON。候選會標成 `latest` 或 `reading`：前者使用 36 小時窗口，後者從同一批 RSS／TLDR 來源回看 90 天，並要求分析、研究、實作或其他深度訊號。Hacker News 與 GitHub releases 維持近期窗口，避免放大例行更新。
+
+摘要 agent 只可根據該 JSON 選出最多十則，通常保留一至五則最新動態，再加一至兩則值得閱讀的內容；不足時不硬湊數量，不得以即時搜尋補資料。
 
 已涵蓋官方 OpenAI、Google AI、Google DeepMind、Hugging Face RSS、AWS Machine Learning Blog、NVIDIA Blog、TLDR AI（會展開為原文連結）、MIT Technology Review AI、The Verge AI、VentureBeat AI、TechCrunch AI、Hacker News Algolia 與指定 GitHub releases。單一來源錯誤會記錄在 `collection_errors`，不會阻止其餘來源繼續執行。
 
@@ -14,6 +16,8 @@
 python3 scripts/ai_news_collect.py --state state/ai_news_seen.json > /tmp/ai-news-candidates.json
 python3 -m unittest discover -s tests -v
 ```
+
+可用 `--reading-lookback-days N` 調整值得閱讀的回看窗口；預設為 90 天。
 
 若已選出要推送的項目，把其 `id` 寫進 JSON，例如 `{"selected_ids": ["..."]}`，然後執行：
 
