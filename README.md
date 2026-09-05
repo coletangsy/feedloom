@@ -1,6 +1,6 @@
 # Feedloom
 
-一個內容蒐集器：每天蒐集近期高訊號的 AI 與資料科學動態，也挑出不限新舊、值得真正讀完的內容。正常結果會由 Codex 的每日自動化回覆在此任務；兩條線都沒有合格內容時只回覆 `[SILENT]`。
+一個內容蒐集器：每天蒐集近期高訊號的 AI 與資料科學動態，也挑出不限新舊、值得真正讀完的內容。正常結果會由 Codex 的每日自動化回覆在此任務；收集沒有回報錯誤，而且兩條線都沒有合格內容時，只回覆 `[SILENT]`。若來源收集出錯，摘要會註明涵蓋範圍不完整；沒有可選內容時則回報收集問題。
 
 ## 設計
 
@@ -26,6 +26,8 @@ python3 scripts/ai_news_collect.py --mark-seen /tmp/selected-ids.json --state st
 ```
 
 state 保留最近 14 天的已推送項目。因 Codex 的回覆交付後沒有可執行的 callback，排程會在產生最終報告前記錄已選項；若交付本身失敗，可刪除相應 state 項目讓下次重試。
+
+預覽、草稿與品質檢視只讀取候選，不寄信，也不執行 `--mark-seen`。只有使用者或既有任務明確授權並指定收件者時才使用 Gmail，寄送 inline HTML，確認交付後才記錄已選項。完整的選材、交付與失敗處理規則見 [ai-news-briefing skill](.agents/skills/ai-news-briefing/SKILL.md)。
 
 ## 排程
 
