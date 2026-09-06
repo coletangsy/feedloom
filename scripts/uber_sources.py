@@ -43,7 +43,7 @@ class _StateParser(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.states: list[list[str]] = []
+        self.states: list[str] = []
         self._current: list[str] | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -60,7 +60,7 @@ class _StateParser(HTMLParser):
 
     def handle_endtag(self, tag: str) -> None:
         if tag.lower() == "script" and self._current is not None:
-            self.states.append(self._current)
+            self.states.append("".join(self._current))
             self._current = None
 
 
@@ -84,8 +84,8 @@ class _MetadataParser(HTMLParser):
             self.descriptions.append(description)
 
 
-def _state_payload(parts: list[str]) -> dict[str, Any] | None:
-    raw = html.unescape("".join(parts)).strip()
+def _state_payload(raw: str) -> dict[str, Any] | None:
+    raw = html.unescape(raw).strip()
     if not raw:
         return None
     try:
@@ -111,21 +111,6 @@ def _article_url(listing_url: str, value: Any) -> str | None:
     return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, parsed.query, ""))
 
 
-def _articles(state: dict[str, Any]) -> list[dict[str, Any]]:
-    related = state.get("relatedPages")
-    if not isinstance(related, dict):
-        return []
-    values = related.get("relatedPages")
-    return values if isinstance(values, list) else []
-
-
-def _metadata_summary(value: bytes | str) -> str:
-    parser = _MetadataParser()
-    parser.feed(_as_text(value))
-    parser.close()
-    return parser.descriptions[0] if parser.descriptions else ""
-
-
 def uber_entries(url: str, fetch: Fetch) -> list[dict[str, str]]:
     """Return the dated article cards rendered on an Uber Engineering page.
 
@@ -142,8 +127,7 @@ def uber_entries(url: str, fetch: Fetch) -> list[dict[str, str]]:
     parser = _StateParser()
     parser.feed(text)
     parser.close()
-    states = [_state_payload(script) for script in parser.states]
-    states = [state for state in states if state is not None]
+    states = [state for state in map(_state_payload, parser.states) if state is not None]
     if not states:
         raise UberSourceError(
             "Uber Engineering page has no embedded article-feed state; markup may have changed"
@@ -152,7 +136,11 @@ def uber_entries(url: str, fetch: Fetch) -> list[dict[str, str]]:
     entries: list[dict[str, str]] = []
     seen_urls: set[str] = set()
     for state in states:
-        for article in _articles(state)[:MAX_ENTRIES]:
+        related = state.get("relatedPages")
+        articles = related.get("relatedPages") if isinstance(related, dict) else None
+        if not isinstance(articles, list):
+            continue
+        for article in articles[:MAX_ENTRIES]:
             if not isinstance(article, dict):
                 continue
             title = _clean(article.get("title") or article.get("ogTitle"))
@@ -171,7 +159,10 @@ def uber_entries(url: str, fetch: Fetch) -> list[dict[str, str]]:
                 or article.get("ogDescription")
             )
             if not summary:
-                summary = _metadata_summary(fetch(article_url))
+                metadata = _MetadataParser()
+                metadata.feed(_as_text(fetch(article_url)))
+                metadata.close()
+                summary = metadata.descriptions[0] if metadata.descriptions else ""
             entries.append({
                 "title": title,
                 "url": article_url,

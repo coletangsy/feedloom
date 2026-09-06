@@ -9,7 +9,7 @@ LISTING_URL = "https://www.uber.com/us/en/blog/engineering/?uber_client_name=784
 
 
 def listing_page(articles: list[dict[str, str]]) -> str:
-    state = {"relatedPages": {"relatedPages": articles, "totalCount": len(articles)}}
+    state = {"relatedPages": {"relatedPages": articles}}
     encoded = quote(json.dumps(state, ensure_ascii=False), safe="")
     return (
         '<html><script type="application/json" '

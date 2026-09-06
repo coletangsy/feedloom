@@ -84,13 +84,12 @@ class _Node:
         return _clean(" ".join(self.text_parts))
 
 
-class _ListingParser(HTMLParser):
-    """Capture anchor descendants without depending on generated CSS names."""
+class _StackParser(HTMLParser):
+    """Provide the shared HTML stack handling used by both page parsers."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.nodes: list[_Node] = []
-        self.anchors: list[_Node] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         normalized = {key.lower(): value or "" for key, value in attrs}
@@ -115,6 +114,14 @@ class _ListingParser(HTMLParser):
                 self._finish(node)
             return
 
+
+class _ListingParser(_StackParser):
+    """Capture anchor descendants without depending on generated CSS names."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.anchors: list[_Node] = []
+
     def _finish(self, node: _Node) -> None:
         active_anchors = [candidate for candidate in self.nodes if candidate.tag == "a"]
         if node.tag == "time":
@@ -136,12 +143,11 @@ class _ListingParser(HTMLParser):
             self.anchors.append(node)
 
 
-class _ArticleParser(HTMLParser):
+class _ArticleParser(_StackParser):
     """Extract the first useful body paragraph and standard description tags."""
 
     def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.nodes: list[_Node] = []
+        super().__init__()
         self.paragraphs: list[str] = []
         self.descriptions: list[str] = []
         self._article_depth = 0
@@ -157,31 +163,12 @@ class _ArticleParser(HTMLParser):
                 if value:
                     self.descriptions.append(value)
             return
+        super().handle_starttag(tag, attrs)
         lowered = tag.lower()
-        self.nodes.append(_Node(lowered, normalized))
         if lowered == "article":
             self._article_depth += 1
         elif lowered == "main":
             self._main_depth += 1
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self.handle_starttag(tag, attrs)
-        self.handle_endtag(tag)
-
-    def handle_data(self, data: str) -> None:
-        for node in self.nodes:
-            node.text_parts.append(data)
-
-    def handle_endtag(self, tag: str) -> None:
-        lowered = tag.lower()
-        for index in range(len(self.nodes) - 1, -1, -1):
-            if self.nodes[index].tag != lowered:
-                continue
-            closing = self.nodes[index:]
-            del self.nodes[index:]
-            for node in reversed(closing):
-                self._finish(node)
-            return
 
     def _finish(self, node: _Node) -> None:
         if node.tag in {"p", "li"} and node.text:

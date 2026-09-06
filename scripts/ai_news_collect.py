@@ -31,6 +31,7 @@ else:
 LOOKBACK_HOURS = 36
 READING_LOOKBACK_DAYS = 90
 STATE_DAYS = 14
+SNIPPET_LENGTH = 1200
 USER_AGENT = "feedloom/1.0 (+local Codex briefing)"
 SCOPED_TERMS = (
     "ai", "artificial intelligence", "llm", "language model", "gpt", "gemini",
@@ -220,7 +221,7 @@ def has_term(corpus: str, term: str) -> bool:
 
 
 def score_item(title: str, url: str, summary: str, source_weight: int, *, hn_points: int = 0, hn_comments: int = 0, github_release: bool = False) -> int | None:
-    corpus = f"{title} {url} {summary[:1200]}".lower()
+    corpus = f"{title} {url} {summary[:SNIPPET_LENGTH]}".lower()
     scoped_hits = sum(has_term(corpus, term) for term in SCOPED_TERMS)
     if not scoped_hits:
         return None
@@ -238,7 +239,7 @@ def score_reading_item(title: str, url: str, summary: str, source_weight: int) -
     score = score_item(title, url, summary, source_weight)
     if score is None:
         return None
-    corpus = f"{title} {url} {summary[:1200]}".lower()
+    corpus = f"{title} {url} {summary[:SNIPPET_LENGTH]}".lower()
     depth_hits = sum(has_term(corpus, term) for term in READING_TERMS)
     return score + min(depth_hits, 3) if depth_hits else None
 
@@ -274,7 +275,7 @@ def candidate(source: str, title: str, url: str, published_at: str, summary: str
         "url": canonical_url(url),
         "source": source,
         "published_at": published.isoformat().replace("+00:00", "Z"),
-        "summary_or_snippet": summary[:1200],
+        "summary_or_snippet": summary[:SNIPPET_LENGTH],
         "score": score,
     }
     data.update(extra)
@@ -319,7 +320,7 @@ def load_state(path: Path, now: datetime) -> set[str]:
     except (OSError, json.JSONDecodeError):
         return set()
     cutoff = now - timedelta(days=STATE_DAYS)
-    return {entry["id"] for entry in payload.get("items", []) if entry.get("id") and parse_date(entry.get("seen_at")) and parse_date(entry["seen_at"]) >= cutoff}
+    return {entry["id"] for entry in payload.get("items", []) if entry.get("id") and (seen_at := parse_date(entry.get("seen_at"))) and seen_at >= cutoff}
 
 
 def save_seen(path: Path, ids: list[str], now: datetime) -> None:
@@ -330,7 +331,7 @@ def save_seen(path: Path, ids: list[str], now: datetime) -> None:
         except (OSError, json.JSONDecodeError):
             pass
     cutoff = now - timedelta(days=STATE_DAYS)
-    retained = [entry for entry in existing if entry.get("id") and parse_date(entry.get("seen_at")) and parse_date(entry["seen_at"]) >= cutoff and entry["id"] not in ids]
+    retained = [entry for entry in existing if entry.get("id") and (seen_at := parse_date(entry.get("seen_at"))) and seen_at >= cutoff and entry["id"] not in ids]
     retained.extend({"id": value, "seen_at": now.isoformat().replace("+00:00", "Z")} for value in ids)
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as handle:
@@ -356,12 +357,7 @@ def collect(state_path: Path, lookback_hours: int, max_items: int, reading_lookb
     errors: list[dict[str, str]] = []
     raw_candidates: list[dict[str, Any]] = []
 
-    for feed in FEEDS:
-        try:
-            entries = feed_entries(feed)
-        except Exception as error:  # One feed must not prevent the rest of the briefing.
-            errors.append({"source": feed.name, "error": str(error)[:300]})
-            continue
+    def add_feed_entries(feed: Feed, entries: list[dict[str, str]]) -> None:
         for entry in entries:
             published = parse_date(entry["published_at"])
             score = score_for_section(entry["title"], entry["url"], entry["summary"], feed.weight, published, cutoff, reading_cutoff)
@@ -371,16 +367,16 @@ def collect(state_path: Path, lookback_hours: int, max_items: int, reading_lookb
                 if item:
                     raw_candidates.append(item)
 
+    for feed in FEEDS:
+        try:
+            entries = feed_entries(feed)
+        except Exception as error:  # One feed must not prevent the rest of the briefing.
+            errors.append({"source": feed.name, "error": str(error)[:300]})
+            continue
+        add_feed_entries(feed, entries)
+
     try:
-        entries = tldr_entries(reading_cutoff)
-        for entry in entries:
-            published = parse_date(entry["published_at"])
-            score = score_for_section(entry["title"], entry["url"], entry["summary"], TLDR_AI_FEED.weight, published, cutoff, reading_cutoff)
-            section = section_for(published, cutoff, reading_cutoff, score)
-            if section:
-                item = candidate(TLDR_AI_FEED.name, entry["title"], entry["url"], entry["published_at"], entry["summary"], score, section=section)
-                if item:
-                    raw_candidates.append(item)
+        add_feed_entries(TLDR_AI_FEED, tldr_entries(reading_cutoff))
     except Exception as error:
         errors.append({"source": TLDR_AI_FEED.name, "error": str(error)[:300]})
 
