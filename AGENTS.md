@@ -1,5 +1,13 @@
 # Feedloom instructions
 
+## Browser and computer use
+
+- Browser and computer-use tools are authorized by default for in-scope research in this repository. Prefer Google Chrome for browser work unless the user specifies another browser.
+- Open research tabs, search, navigate, and read public sources without asking for routine confirmation. Use browser interaction directly when needed; do not require a failed web-reader attempt first.
+- Follow the tools' permission requirements for consequential actions. This research authorization does not expand the task to sending messages, purchases, or account/security changes.
+
+## Unattended AI briefing runs
+
 For unattended briefing runs, read `.agents/skills/ai-news-briefing/SKILL.md` before producing an answer.
 
 - Run the collector first and use only its JSON candidates.
