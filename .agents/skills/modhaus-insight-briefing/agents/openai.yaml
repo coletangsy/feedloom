@@ -1,0 +1,6 @@
+interface:
+  display_name: "MODHAUS / tripleS 深讀"
+  short_description: "手動搜尋並深讀成員訪談與公司報導，分析判斷標準、創作方向及下一步線索"
+  default_prompt: "使用 $modhaus-insight-briefing 優先從 Naver 尋找最新且值得深讀的成員訪談與公司報導，分析所有有價值的段落，區分原文、解讀與待查問題。"
+policy:
+  allow_implicit_invocation: false
