@@ -8,7 +8,20 @@
 
 摘要 agent 只可根據該 JSON 選出最多十則，通常保留一至五則最新動態，再加一至兩則值得閱讀的內容；不足時不硬湊數量，不得以即時搜尋補資料。
 
-已涵蓋官方 OpenAI、Google AI、Google DeepMind、Hugging Face RSS、AWS Machine Learning Blog、NVIDIA Blog、TLDR AI（會展開為原文連結）、MIT Technology Review AI、The Verge AI、VentureBeat AI、TechCrunch AI、Hacker News Algolia 與指定 GitHub releases。單一來源錯誤會記錄在 `collection_errors`，不會阻止其餘來源繼續執行。
+官方研究與新聞來源：
+
+- [OpenAI RSS](https://openai.com/news/rss.xml)：共用官方綜合 feed，包含 Research 與 Signals 文章；不另抓 Signals 的互動資料頁或保證完整收錄其所有報告。
+- [Anthropic News](https://www.anthropic.com/news) 與 [Anthropic Research](https://www.anthropic.com/research)：解析目前頁面上的文章，取得原文摘要及發布日期。
+- [Google DeepMind Blog](https://deepmind.google/blog/rss.xml)：包含 DeepMind 研究與模型消息。
+- [Google Research](https://research.google/blog/rss/) 與 [Google Innovation & AI](https://blog.google/innovation-and-ai/rss/)：補充研究、科學及應用文章，並保留 Google AI RSS。
+- [Meta Engineering AI Research](https://engineering.fb.com/category/ai-research/feed/)：採用 Meta 官方工程 AI 研究分類，涵蓋訓練、推薦系統與基礎設施；這不是 ai.meta.com 的完整鏡像。
+- [Microsoft Research](https://www.microsoft.com/en-us/research/feed/)：補充企業研究及實作內容。
+- [Netflix TechBlog](https://netflixtechblog.com/feed) 與 [Spotify Engineering](https://engineering.atspotify.com/feed/)：補充推薦系統、個人化、資料平台及 AI 工程實務。
+- [Uber Engineering](https://www.uber.com/us/en/blog/engineering/)：解析官方工程頁內嵌的文章資料，最多讀取當頁 20 篇。
+
+另有 Hugging Face RSS、AWS Machine Learning Blog、NVIDIA Blog、TLDR AI（會展開為原文連結）、MIT Technology Review AI、The Verge AI、VentureBeat AI、TechCrunch AI、Hacker News Algolia 與指定 GitHub releases。
+
+企業工程文章仍須符合 AI、資料科學、資料工程、推薦系統或實驗等主題，舊文章另須具備研究或深度閱讀訊號。重疊來源依原文網址或相同標題去重。90 天是可接受的回看窗口，實際涵蓋範圍受各 feed／列表頁提供的文章數限制，不代表完整歷史索引。單一來源錯誤會記錄在 `collection_errors`，不會阻止其餘來源繼續執行。
 
 ## 本機使用
 

@@ -119,6 +119,45 @@ class NewsCollectorTests(unittest.TestCase):
             path.write_text('{"items": [{"id": "old", "seen_at": "2000-01-01T00:00:00Z"}, {"id": "current", "seen_at": "' + now.isoformat().replace("+00:00", "Z") + '"}]}')
             self.assertEqual(load_state(path, now + timedelta(days=1)), {"current"})
 
+    def test_overlapping_sources_deduplicate_exact_article_with_different_titles(self):
+        published = datetime.now(UTC).isoformat()
+        entries = [
+            {"title": "AI research report", "url": "https://example.com/study?utm_source=google", "summary": "Research findings.", "published_at": published},
+            {"title": "New AI research findings", "url": "https://example.com/study/", "summary": "Research findings.", "published_at": published},
+        ]
+        with TemporaryDirectory() as directory:
+            with patch("scripts.ai_news_collect.feed_entries", return_value=entries), patch("scripts.ai_news_collect.tldr_entries", return_value=[]), patch("scripts.ai_news_collect.hn_entries", return_value=[]), patch("scripts.ai_news_collect.github_entries", return_value=[]):
+                result = collect(Path(directory) / "seen.json", 36, 40)
+        self.assertEqual(len(result["candidates"]), 1)
+
+    def test_technical_reading_accepts_data_engineering_but_not_company_news(self):
+        self.assertIsNotNone(score_reading_item("Scaling a data platform", "https://example.com/post", "Architecture lessons from data engineering.", 4))
+        self.assertIsNone(score_item("Opening our new office", "https://example.com/post", "Meet our team.", 4))
+
+    def test_signals_study_can_enter_reading_lane(self):
+        self.assertIsNotNone(score_reading_item("How people use ChatGPT", "https://openai.com/index/study", "A study with findings on AI adoption.", 5))
+
+    def test_scoring_ignores_terms_outside_the_emitted_snippet(self):
+        summary = "Ordinary company news. " * 100 + " AI research training benchmark"
+        self.assertIsNone(score_item("Office update", "https://example.com/post", summary, 4))
+        self.assertIsNone(score_reading_item("AI update", "https://example.com/post", summary, 4))
+
+    def test_date_only_articles_overlap_latest_window_without_invented_time(self):
+        class MorningRun(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime(2026, 9, 6, tzinfo=UTC)
+
+        # 08:00 HKT: cutoff is September 4 at noon UTC. No depth terms, so
+        # treating the date as midnight would drop the announcement entirely.
+        dates = ("2026-09-04", "2026-09-03", "2026-09-04T00:00:00Z", "2026-09-04T13:00:00Z")
+        entries = [{"title": f"Claude announcement {index}", "url": f"https://example.com/{index}", "summary": "Claude is available.", "published_at": value} for index, value in enumerate(dates)]
+        with TemporaryDirectory() as directory:
+            with patch("scripts.ai_news_collect.datetime", MorningRun), patch("scripts.ai_news_collect.feed_entries", return_value=entries), patch("scripts.ai_news_collect.tldr_entries", return_value=[]), patch("scripts.ai_news_collect.hn_entries", return_value=[]), patch("scripts.ai_news_collect.github_entries", return_value=[]):
+                result = collect(Path(directory) / "seen.json", 36, 40)
+        self.assertEqual({item["published_at"] for item in result["candidates"]}, {"2026-09-04", "2026-09-04T13:00:00Z"})
+        self.assertTrue(all(item["section"] == "latest" for item in result["candidates"]))
+
 
 if __name__ == "__main__":
     unittest.main()

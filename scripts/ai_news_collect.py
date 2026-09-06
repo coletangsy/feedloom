@@ -20,16 +20,26 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
+if __package__:
+    from .anthropic_sources import anthropic_entries
+    from .uber_sources import uber_entries
+else:
+    from anthropic_sources import anthropic_entries
+    from uber_sources import uber_entries
+
 
 LOOKBACK_HOURS = 36
 READING_LOOKBACK_DAYS = 90
 STATE_DAYS = 14
+SNIPPET_LENGTH = 1200
 USER_AGENT = "feedloom/1.0 (+local Codex briefing)"
 SCOPED_TERMS = (
     "ai", "artificial intelligence", "llm", "language model", "gpt", "gemini",
     "claude", "agent", "machine learning", "deep learning", "data science",
     "mlops", "inference", "embedding", "benchmark", "transformer", "rag",
     "hugging face", "openai", "anthropic", "deepmind", "model",
+    "data engineering", "data platform", "recommendation", "recommender",
+    "experimentation", "a/b test", "forecasting",
 )
 IMPACT_TERMS = (
     "release", "launch", "api", "model", "benchmark", "open source", "security",
@@ -41,6 +51,7 @@ READING_TERMS = (
     "lessons", "postmortem", "tutorial", "evaluation", "benchmark", "research",
     "paper", "scaling", "inference", "training", "dataset", "reproducibility",
     "interpretability",
+    "study", "report", "methodology", "findings",
 )
 
 
@@ -49,12 +60,22 @@ class Feed:
     name: str
     url: str
     weight: int
+    format: str = "rss"
 
 
 FEEDS = (
     Feed("OpenAI", "https://openai.com/news/rss.xml", 5),
+    Feed("Anthropic News", "https://www.anthropic.com/news", 5, "anthropic"),
+    Feed("Anthropic Research", "https://www.anthropic.com/research", 5, "anthropic"),
     Feed("Google AI", "https://blog.google/technology/ai/rss/", 5),
     Feed("Google DeepMind", "https://deepmind.google/blog/rss.xml", 5),
+    Feed("Google Research", "https://research.google/blog/rss/", 5),
+    Feed("Google Innovation & AI", "https://blog.google/innovation-and-ai/rss/", 4),
+    Feed("Meta Engineering AI Research", "https://engineering.fb.com/category/ai-research/feed/", 5),
+    Feed("Microsoft Research", "https://www.microsoft.com/en-us/research/feed/", 5),
+    Feed("Netflix TechBlog", "https://netflixtechblog.com/feed", 4),
+    Feed("Spotify Engineering", "https://engineering.atspotify.com/feed/", 4),
+    Feed("Uber Engineering", "https://www.uber.com/us/en/blog/engineering/", 4, "uber"),
     Feed("Hugging Face", "https://huggingface.co/blog/feed.xml", 5),
     Feed("AWS Machine Learning Blog", "https://aws.amazon.com/blogs/machine-learning/feed/", 4),
     Feed("The Verge AI", "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", 2),
@@ -142,6 +163,10 @@ def text_at(element: ET.Element, names: tuple[str, ...]) -> str:
 
 
 def feed_entries(feed: Feed) -> list[dict[str, str]]:
+    if feed.format == "anthropic":
+        return anthropic_entries(feed.url, fetch)
+    if feed.format == "uber":
+        return uber_entries(feed.url, fetch)
     root = ET.fromstring(fetch(feed.url))
     entries: list[dict[str, str]] = []
     for element in root.findall(".//item") + root.findall("{http://www.w3.org/2005/Atom}entry"):
@@ -196,7 +221,7 @@ def has_term(corpus: str, term: str) -> bool:
 
 
 def score_item(title: str, url: str, summary: str, source_weight: int, *, hn_points: int = 0, hn_comments: int = 0, github_release: bool = False) -> int | None:
-    corpus = f"{title} {url} {summary}".lower()
+    corpus = f"{title} {url} {summary[:SNIPPET_LENGTH]}".lower()
     scoped_hits = sum(has_term(corpus, term) for term in SCOPED_TERMS)
     if not scoped_hits:
         return None
@@ -214,7 +239,7 @@ def score_reading_item(title: str, url: str, summary: str, source_weight: int) -
     score = score_item(title, url, summary, source_weight)
     if score is None:
         return None
-    corpus = f"{title} {url} {summary}".lower()
+    corpus = f"{title} {url} {summary[:SNIPPET_LENGTH]}".lower()
     depth_hits = sum(has_term(corpus, term) for term in READING_TERMS)
     return score + min(depth_hits, 3) if depth_hits else None
 
@@ -249,8 +274,8 @@ def candidate(source: str, title: str, url: str, published_at: str, summary: str
         "title": title,
         "url": canonical_url(url),
         "source": source,
-        "published_at": published.isoformat().replace("+00:00", "Z"),
-        "summary_or_snippet": summary[:1200],
+        "published_at": published_at if published_at == published.date().isoformat() else published.isoformat().replace("+00:00", "Z"),
+        "summary_or_snippet": summary[:SNIPPET_LENGTH],
         "score": score,
     }
     data.update(extra)
@@ -295,7 +320,7 @@ def load_state(path: Path, now: datetime) -> set[str]:
     except (OSError, json.JSONDecodeError):
         return set()
     cutoff = now - timedelta(days=STATE_DAYS)
-    return {entry["id"] for entry in payload.get("items", []) if entry.get("id") and parse_date(entry.get("seen_at")) and parse_date(entry["seen_at"]) >= cutoff}
+    return {entry["id"] for entry in payload.get("items", []) if entry.get("id") and (seen_at := parse_date(entry.get("seen_at"))) and seen_at >= cutoff}
 
 
 def save_seen(path: Path, ids: list[str], now: datetime) -> None:
@@ -306,7 +331,7 @@ def save_seen(path: Path, ids: list[str], now: datetime) -> None:
         except (OSError, json.JSONDecodeError):
             pass
     cutoff = now - timedelta(days=STATE_DAYS)
-    retained = [entry for entry in existing if entry.get("id") and parse_date(entry.get("seen_at")) and parse_date(entry["seen_at"]) >= cutoff and entry["id"] not in ids]
+    retained = [entry for entry in existing if entry.get("id") and (seen_at := parse_date(entry.get("seen_at"))) and seen_at >= cutoff and entry["id"] not in ids]
     retained.extend({"id": value, "seen_at": now.isoformat().replace("+00:00", "Z")} for value in ids)
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as handle:
@@ -332,14 +357,13 @@ def collect(state_path: Path, lookback_hours: int, max_items: int, reading_lookb
     errors: list[dict[str, str]] = []
     raw_candidates: list[dict[str, Any]] = []
 
-    for feed in FEEDS:
-        try:
-            entries = feed_entries(feed)
-        except Exception as error:  # One feed must not prevent the rest of the briefing.
-            errors.append({"source": feed.name, "error": str(error)[:300]})
-            continue
+    def add_feed_entries(feed: Feed, entries: list[dict[str, str]]) -> None:
         for entry in entries:
             published = parse_date(entry["published_at"])
+            if published and entry["published_at"] == published.date().isoformat():
+                # A source day overlaps the window until its end; keep the
+                # original date precision in the candidate rather than inventing a time.
+                published += timedelta(days=1, microseconds=-1)
             score = score_for_section(entry["title"], entry["url"], entry["summary"], feed.weight, published, cutoff, reading_cutoff)
             section = section_for(published, cutoff, reading_cutoff, score)
             if section:
@@ -347,16 +371,16 @@ def collect(state_path: Path, lookback_hours: int, max_items: int, reading_lookb
                 if item:
                     raw_candidates.append(item)
 
+    for feed in FEEDS:
+        try:
+            entries = feed_entries(feed)
+        except Exception as error:  # One feed must not prevent the rest of the briefing.
+            errors.append({"source": feed.name, "error": str(error)[:300]})
+            continue
+        add_feed_entries(feed, entries)
+
     try:
-        entries = tldr_entries(reading_cutoff)
-        for entry in entries:
-            published = parse_date(entry["published_at"])
-            score = score_for_section(entry["title"], entry["url"], entry["summary"], TLDR_AI_FEED.weight, published, cutoff, reading_cutoff)
-            section = section_for(published, cutoff, reading_cutoff, score)
-            if section:
-                item = candidate(TLDR_AI_FEED.name, entry["title"], entry["url"], entry["published_at"], entry["summary"], score, section=section)
-                if item:
-                    raw_candidates.append(item)
+        add_feed_entries(TLDR_AI_FEED, tldr_entries(reading_cutoff))
     except Exception as error:
         errors.append({"source": TLDR_AI_FEED.name, "error": str(error)[:300]})
 
@@ -387,10 +411,12 @@ def collect(state_path: Path, lookback_hours: int, max_items: int, reading_lookb
 
     deduplicated: list[dict[str, Any]] = []
     known_titles: set[str] = set()
+    known_ids: set[str] = set()
     for item in sorted(raw_candidates, key=lambda value: (0 if value["section"] == "latest" else 1, -value["score"], value["published_at"]), reverse=False):
-        if item["id"] in seen or item["title_id"] in seen or item["title_id"] in known_titles or item["score"] < 4:
+        if item["id"] in seen or item["id"] in known_ids or item["title_id"] in seen or item["title_id"] in known_titles or item["score"] < 4:
             continue
         known_titles.add(item["title_id"])
+        known_ids.add(item["id"])
         deduplicated.append(item)
     latest = [item for item in deduplicated if item["section"] == "latest"]
     reading = [item for item in deduplicated if item["section"] == "reading"]
