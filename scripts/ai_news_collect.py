@@ -20,6 +20,13 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
+if __package__:
+    from .anthropic_sources import anthropic_entries
+    from .uber_sources import uber_entries
+else:
+    from anthropic_sources import anthropic_entries
+    from uber_sources import uber_entries
+
 
 LOOKBACK_HOURS = 36
 READING_LOOKBACK_DAYS = 90
@@ -30,6 +37,8 @@ SCOPED_TERMS = (
     "claude", "agent", "machine learning", "deep learning", "data science",
     "mlops", "inference", "embedding", "benchmark", "transformer", "rag",
     "hugging face", "openai", "anthropic", "deepmind", "model",
+    "data engineering", "data platform", "recommendation", "recommender",
+    "experimentation", "a/b test", "forecasting",
 )
 IMPACT_TERMS = (
     "release", "launch", "api", "model", "benchmark", "open source", "security",
@@ -41,6 +50,7 @@ READING_TERMS = (
     "lessons", "postmortem", "tutorial", "evaluation", "benchmark", "research",
     "paper", "scaling", "inference", "training", "dataset", "reproducibility",
     "interpretability",
+    "study", "report", "methodology", "findings",
 )
 
 
@@ -49,12 +59,22 @@ class Feed:
     name: str
     url: str
     weight: int
+    format: str = "rss"
 
 
 FEEDS = (
     Feed("OpenAI", "https://openai.com/news/rss.xml", 5),
+    Feed("Anthropic News", "https://www.anthropic.com/news", 5, "anthropic"),
+    Feed("Anthropic Research", "https://www.anthropic.com/research", 5, "anthropic"),
     Feed("Google AI", "https://blog.google/technology/ai/rss/", 5),
     Feed("Google DeepMind", "https://deepmind.google/blog/rss.xml", 5),
+    Feed("Google Research", "https://research.google/blog/rss/", 5),
+    Feed("Google Innovation & AI", "https://blog.google/innovation-and-ai/rss/", 4),
+    Feed("Meta Engineering AI Research", "https://engineering.fb.com/category/ai-research/feed/", 5),
+    Feed("Microsoft Research", "https://www.microsoft.com/en-us/research/feed/", 5),
+    Feed("Netflix TechBlog", "https://netflixtechblog.com/feed", 4),
+    Feed("Spotify Engineering", "https://engineering.atspotify.com/feed/", 4),
+    Feed("Uber Engineering", "https://www.uber.com/us/en/blog/engineering/", 4, "uber"),
     Feed("Hugging Face", "https://huggingface.co/blog/feed.xml", 5),
     Feed("AWS Machine Learning Blog", "https://aws.amazon.com/blogs/machine-learning/feed/", 4),
     Feed("The Verge AI", "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", 2),
@@ -142,6 +162,10 @@ def text_at(element: ET.Element, names: tuple[str, ...]) -> str:
 
 
 def feed_entries(feed: Feed) -> list[dict[str, str]]:
+    if feed.format == "anthropic":
+        return anthropic_entries(feed.url, fetch)
+    if feed.format == "uber":
+        return uber_entries(feed.url, fetch)
     root = ET.fromstring(fetch(feed.url))
     entries: list[dict[str, str]] = []
     for element in root.findall(".//item") + root.findall("{http://www.w3.org/2005/Atom}entry"):
@@ -196,7 +220,7 @@ def has_term(corpus: str, term: str) -> bool:
 
 
 def score_item(title: str, url: str, summary: str, source_weight: int, *, hn_points: int = 0, hn_comments: int = 0, github_release: bool = False) -> int | None:
-    corpus = f"{title} {url} {summary}".lower()
+    corpus = f"{title} {url} {summary[:1200]}".lower()
     scoped_hits = sum(has_term(corpus, term) for term in SCOPED_TERMS)
     if not scoped_hits:
         return None
@@ -214,7 +238,7 @@ def score_reading_item(title: str, url: str, summary: str, source_weight: int) -
     score = score_item(title, url, summary, source_weight)
     if score is None:
         return None
-    corpus = f"{title} {url} {summary}".lower()
+    corpus = f"{title} {url} {summary[:1200]}".lower()
     depth_hits = sum(has_term(corpus, term) for term in READING_TERMS)
     return score + min(depth_hits, 3) if depth_hits else None
 
@@ -387,10 +411,12 @@ def collect(state_path: Path, lookback_hours: int, max_items: int, reading_lookb
 
     deduplicated: list[dict[str, Any]] = []
     known_titles: set[str] = set()
+    known_ids: set[str] = set()
     for item in sorted(raw_candidates, key=lambda value: (0 if value["section"] == "latest" else 1, -value["score"], value["published_at"]), reverse=False):
-        if item["id"] in seen or item["title_id"] in seen or item["title_id"] in known_titles or item["score"] < 4:
+        if item["id"] in seen or item["id"] in known_ids or item["title_id"] in seen or item["title_id"] in known_titles or item["score"] < 4:
             continue
         known_titles.add(item["title_id"])
+        known_ids.add(item["id"])
         deduplicated.append(item)
     latest = [item for item in deduplicated if item["section"] == "latest"]
     reading = [item for item in deduplicated if item["section"] == "reading"]
