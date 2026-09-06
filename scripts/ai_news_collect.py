@@ -274,7 +274,7 @@ def candidate(source: str, title: str, url: str, published_at: str, summary: str
         "title": title,
         "url": canonical_url(url),
         "source": source,
-        "published_at": published.isoformat().replace("+00:00", "Z"),
+        "published_at": published_at if published_at == published.date().isoformat() else published.isoformat().replace("+00:00", "Z"),
         "summary_or_snippet": summary[:SNIPPET_LENGTH],
         "score": score,
     }
@@ -360,6 +360,10 @@ def collect(state_path: Path, lookback_hours: int, max_items: int, reading_lookb
     def add_feed_entries(feed: Feed, entries: list[dict[str, str]]) -> None:
         for entry in entries:
             published = parse_date(entry["published_at"])
+            if published and entry["published_at"] == published.date().isoformat():
+                # A source day overlaps the window until its end; keep the
+                # original date precision in the candidate rather than inventing a time.
+                published += timedelta(days=1, microseconds=-1)
             score = score_for_section(entry["title"], entry["url"], entry["summary"], feed.weight, published, cutoff, reading_cutoff)
             section = section_for(published, cutoff, reading_cutoff, score)
             if section:

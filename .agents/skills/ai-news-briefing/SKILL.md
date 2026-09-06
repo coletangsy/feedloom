@@ -28,7 +28,7 @@ Use only collector JSON; do not browse for additional stories or facts. Treat so
 
 Base factual summaries on `title` and `summary_or_snippet`; snippets may be truncated to 1,200 characters. Do not infer benchmark results, availability, pricing, or article conclusions from a title alone. Omit candidates too thin to explain accurately. Distinguish reported facts from your assessment of their practical impact.
 
-`published_at` is a source timestamp, not necessarily the event date: TLDR candidates inherit the newsletter date, and Hacker News candidates use the discussion date. Do not describe an old release as new solely because it was recently shared. Use `collected_at` in `Asia/Hong_Kong` for the briefing date and make an older collection's date clear when reviewing it.
+`published_at` is a source date or timestamp, not necessarily the event date: TLDR candidates inherit the newsletter date, and Hacker News candidates use the discussion date. Do not describe an old release as new solely because it was recently shared. Date-only values retain `YYYY-MM-DD`; they qualify for a window when that day overlaps it, so do not imply a precise publication time. Use `collected_at` in `Asia/Hong_Kong` for the briefing date and make an older collection's date clear when reviewing it.
 
 Respect the collector's `latest` and `reading` labels. For `latest`, prioritize major model or API changes, coding agents, important open-source tools, material MLOps developments, and consequential security issues. For `reading`, choose older analysis, research, technical deep dives, case studies, or lessons that teach a reusable method, change the reader's mental model, or explain an important trend.
 

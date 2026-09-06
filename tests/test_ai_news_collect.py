@@ -142,6 +142,22 @@ class NewsCollectorTests(unittest.TestCase):
         self.assertIsNone(score_item("Office update", "https://example.com/post", summary, 4))
         self.assertIsNone(score_reading_item("AI update", "https://example.com/post", summary, 4))
 
+    def test_date_only_articles_overlap_latest_window_without_invented_time(self):
+        class MorningRun(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime(2026, 9, 6, tzinfo=UTC)
+
+        # 08:00 HKT: cutoff is September 4 at noon UTC. No depth terms, so
+        # treating the date as midnight would drop the announcement entirely.
+        dates = ("2026-09-04", "2026-09-03", "2026-09-04T00:00:00Z", "2026-09-04T13:00:00Z")
+        entries = [{"title": f"Claude announcement {index}", "url": f"https://example.com/{index}", "summary": "Claude is available.", "published_at": value} for index, value in enumerate(dates)]
+        with TemporaryDirectory() as directory:
+            with patch("scripts.ai_news_collect.datetime", MorningRun), patch("scripts.ai_news_collect.feed_entries", return_value=entries), patch("scripts.ai_news_collect.tldr_entries", return_value=[]), patch("scripts.ai_news_collect.hn_entries", return_value=[]), patch("scripts.ai_news_collect.github_entries", return_value=[]):
+                result = collect(Path(directory) / "seen.json", 36, 40)
+        self.assertEqual({item["published_at"] for item in result["candidates"]}, {"2026-09-04", "2026-09-04T13:00:00Z"})
+        self.assertTrue(all(item["section"] == "latest" for item in result["candidates"]))
+
 
 if __name__ == "__main__":
     unittest.main()
