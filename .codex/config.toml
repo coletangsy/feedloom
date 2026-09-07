@@ -1,0 +1,9 @@
+# Preauthorize the scheduled briefing send in this trusted project.
+# Retain both tool-name forms for connector naming compatibility.
+[apps.connector_2128aebfecb84f64a069897515042a44.tools."gmail.send_email"]
+enabled = true
+approval_mode = "approve"
+
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.gmail_send_email]
+enabled = true
+approval_mode = "approve"
