@@ -20,7 +20,7 @@
 - [Netflix TechBlog](https://netflixtechblog.com/feed) 與 [Spotify Engineering](https://engineering.atspotify.com/feed/)：補充推薦系統、個人化、資料平台及 AI 工程實務。
 - [Uber Engineering](https://www.uber.com/us/en/blog/engineering/)：解析官方工程頁內嵌的文章資料，最多讀取當頁 20 篇。
 
-另有 Hugging Face RSS、AWS Machine Learning Blog、Databricks、PyTorch、NVIDIA Blog、TLDR AI（會展開為原文連結）、MIT Technology Review AI、The Verge AI、VentureBeat AI、TechCrunch AI、Hacker News Algolia 與指定 GitHub releases。
+另有 Hugging Face RSS、AWS Machine Learning Blog、Databricks、PyTorch、NVIDIA Blog、TLDR AI（會展開為原文連結）、MIT Technology Review AI、The Verge AI、TechCrunch AI、Hacker News Algolia 與指定 GitHub releases。
 
 企業工程文章仍須符合 AI、資料科學、資料工程、推薦系統或實驗等主題，舊文章另須具備研究或深度閱讀訊號。重疊來源依原文網址或相同標題去重。90 天是可接受的回看窗口，實際涵蓋範圍受各 feed／列表頁提供的文章數限制，不代表完整歷史索引。單一來源錯誤會記錄在 `collection_errors`，不會阻止其餘來源繼續執行。
 

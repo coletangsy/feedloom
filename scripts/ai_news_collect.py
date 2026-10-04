@@ -82,7 +82,6 @@ FEEDS = (
     Feed("Databricks", "https://www.databricks.com/feed", 4),
     Feed("PyTorch", "https://pytorch.org/blog/feed.xml", 5),
     Feed("The Verge AI", "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", 2),
-    Feed("VentureBeat AI", "https://venturebeat.com/category/ai/feed/", 2),
     Feed("TechCrunch AI", "https://techcrunch.com/category/artificial-intelligence/feed/", 2),
     Feed("NVIDIA Blog", "https://blogs.nvidia.com/feed/", 3),
     Feed("MIT Technology Review AI", "https://www.technologyreview.com/topic/artificial-intelligence/feed/", 3),
