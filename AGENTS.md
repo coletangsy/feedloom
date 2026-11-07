@@ -16,3 +16,10 @@ For unattended briefing runs, read `.agents/skills/ai-news-briefing/SKILL.md` be
 - Keep `state/ai_news_seen.json` out of git.
 - Do not commit during a daily run; source and state changes are manual maintenance work.
 - TLDR AI is expanded into its linked original stories; sponsor entries are excluded. Validate source maintenance with `python3 -m unittest discover -s tests -v`.
+
+## Documentation
+
+- [README](README.md) is the collector design and operator workflow entry point.
+- [ARCHITECTURE.md](ARCHITECTURE.md) describes candidate collection, selection, delivery, and seen-state boundaries.
+- [CHANGELOG.md](CHANGELOG.md) records delivered behavior and documentation changes.
+- Update `ARCHITECTURE.md` when sources, candidate fields, selection limits, delivery permissions, or seen-state handling changes. Update `CHANGELOG.md` for user-visible or workflow-significant changes.
