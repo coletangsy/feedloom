@@ -2,6 +2,12 @@
 
 一個內容蒐集器：每天蒐集近期高訊號的 AI 與資料科學動態，也挑出不限新舊、值得真正讀完的內容。正常結果會由 Codex 的每日自動化回覆在此任務；收集沒有回報錯誤，而且兩條線都沒有合格內容時，只回覆 `[SILENT]`。若來源收集出錯，摘要會註明涵蓋範圍不完整；沒有可選內容時則回報收集問題。
 
+## Maintainer Documentation
+
+- [Repository guidance](AGENTS.md)
+- [Architecture overview](ARCHITECTURE.md)
+- [Changelog](CHANGELOG.md)
+
 ## 設計
 
 `scripts/ai_news_collect.py` 只做可重跑的蒐集、正規化、初步評分與去重，並輸出 JSON。候選會標成 `latest` 或 `reading`：前者使用 36 小時窗口，後者從同一批 RSS／TLDR 來源回看 90 天，並要求分析、研究、實作或其他深度訊號。Hacker News 與 GitHub releases 維持近期窗口，避免放大例行更新。
